@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "44268700679",
+    "project_id": "book-tracker-e3f25",
+    "storage_bucket": "book-tracker-e3f25.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:44268700679:android:aa5fd1d21f9219114696a2",
+        "android_client_info": {
+          "package_name": "com.arttech.bookTrackerApp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "44268700679-k72ql5rsdc2qiqm1lhmcfteddfb1jnkn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL_7m9T5hxtbTxgyIaGJ4C7Yp7IKCC-q0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "44268700679-k72ql5rsdc2qiqm1lhmcfteddfb1jnkn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "44268700679-698isuoe4kd6pqdvugcc9vjbn7t68sik.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.arttech.bookTrackerApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:44268700679:android:f4d48259af3240c24696a2",
+        "android_client_info": {
+          "package_name": "com.arttech.booktrackerapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "44268700679-k72ql5rsdc2qiqm1lhmcfteddfb1jnkn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL_7m9T5hxtbTxgyIaGJ4C7Yp7IKCC-q0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "44268700679-k72ql5rsdc2qiqm1lhmcfteddfb1jnkn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "44268700679-698isuoe4kd6pqdvugcc9vjbn7t68sik.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.arttech.bookTrackerApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
