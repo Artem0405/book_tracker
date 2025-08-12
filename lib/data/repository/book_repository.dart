@@ -67,18 +67,28 @@ class BookRepository {
   }
 
   /// Получает поток книг с определенной полки.
-  Stream<List<model.Book>> getBooksFromShelf(String shelf) {
+  Stream<List<model.Book>> getBooksFromShelf(String shelf, {String? categoryId}) {
     if (_userId == null) return Stream.value([]);
 
-    return _firestore
+    // Начинаем строить запрос
+    Query query = _firestore
         .collection('user_books')
         .where('userId', isEqualTo: _userId)
-        .where('shelf', isEqualTo: shelf)
+        .where('shelf', isEqualTo: shelf);
+
+    // Если передан ID категории, добавляем фильтр
+    if (categoryId != null) {
+      // Ищем документы, где массив 'categoryIds' содержит наш ID
+      query = query.where('categoryIds', arrayContains: categoryId);
+    }
+
+    // Добавляем сортировку и возвращаем поток
+    return query
         .orderBy('addedAt', descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
-          .map((doc) => model.Book.fromFirestore(doc.data(), doc.id))
+          .map((doc) => model.Book.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     });
   }
@@ -146,7 +156,7 @@ class BookRepository {
         .snapshots()
         .map((snapshot) {
       if (!snapshot.exists) return null;
-      return model.Book.fromFirestore(snapshot.data()!, snapshot.id);
+      return model.Book.fromFirestore(snapshot.data()! as Map<String, dynamic>, snapshot.id);
     });
   }
 
