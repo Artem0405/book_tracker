@@ -44,8 +44,6 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<LoginCubit, LoginState>(
-      // BlocListener идеально подходит для действий, которые должны произойти один раз:
-      // навигация, показ SnackBar, диалоговых окон и т.д.
       listener: (context, state) {
         if (state.status.isFailure) {
           ScaffoldMessenger.of(context)
@@ -60,93 +58,109 @@ class _LoginViewState extends State<LoginView> {
       },
       child: Scaffold(
         body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Иконка и приветствие
-                  const Icon(Icons.menu_book, size: 100, color: Colors.deepPurple),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Добро пожаловать!',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    'Войдите, чтобы продолжить',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 40),
+          child: Stack( // <<< ИСПОЛЬЗУЕМ STACK ДЛЯ НАЛОЖЕНИЯ
+            children: [
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Иконка и приветствие
+                      const Icon(Icons.menu_book, size: 100, color: Colors.deepPurple),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Добро пожаловать!',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Войдите, чтобы продолжить',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 40),
 
-                  // Поля ввода
-                  CustomTextField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    icon: Icons.email_outlined,
-                  ),
-                  CustomTextField(
-                    controller: _passwordController,
-                    labelText: 'Пароль',
-                    isPassword: true,
-                    icon: Icons.lock_outline,
-                  ),
-                  const SizedBox(height: 20),
+                      // Поля ввода
+                      CustomTextField(
+                        controller: _emailController,
+                        labelText: 'Email',
+                        icon: Icons.email_outlined,
+                      ),
+                      CustomTextField(
+                        controller: _passwordController,
+                        labelText: 'Пароль',
+                        isPassword: true,
+                        icon: Icons.lock_outline,
+                      ),
+                      const SizedBox(height: 20),
 
-                  // Кнопка входа
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Проверяем, не идет ли уже процесс входа
-                          if (context.read<LoginCubit>().state.status.isInProgress) return;
+                      // Кнопка входа
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (context.read<LoginCubit>().state.status.isInProgress) return;
 
-                          context.read<LoginCubit>().logInWithCredentials(
-                            _emailController.text.trim(), // Используем trim для удаления пробелов
-                            _passwordController.text.trim(),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                          backgroundColor: Colors.deepPurple,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                              context.read<LoginCubit>().logInWithCredentials(
+                                _emailController.text.trim(),
+                                _passwordController.text.trim(),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.all(16),
+                              backgroundColor: Colors.deepPurple,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: BlocBuilder<LoginCubit, LoginState>(
+                              builder: (context, state) {
+                                return state.status.isInProgress
+                                    ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(color: Colors.white),
+                                )
+                                    : const Text(
+                                  'Войти',
+                                  style: TextStyle(fontSize: 18, color: Colors.white),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                        // BlocBuilder перерисовывает только кнопку, а не весь экран.
-                        child: BlocBuilder<LoginCubit, LoginState>(
-                          builder: (context, state) {
-                            return state.status.isInProgress
-                                ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(color: Colors.white),
-                            )
-                                : const Text(
-                              'Войти',
-                              style: TextStyle(fontSize: 18, color: Colors.white),
-                            );
-                          },
-                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                  // Ссылка на регистрацию
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                      );
-                    },
-                    child: const Text('Еще нет аккаунта? Зарегистрироваться'),
+                      // Ссылка на регистрацию
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                          );
+                        },
+                        child: const Text('Еще нет аккаунта? Зарегистрироваться'),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+              // <<< НАША НОВАЯ НАДПИСЬ >>>
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: Text(
+                  'by ArtTech',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -71,7 +71,7 @@ class BookDetailsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // <<< СЕКЦИЯ ОЦЕНКИ >>>
+                // Секция оценки
                 if (book.shelf == 'read') ...[
                   const Divider(),
                   const SizedBox(height: 16),
@@ -138,7 +138,7 @@ class BookDetailsScreen extends StatelessWidget {
                     const Text('Цитаты', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     IconButton(
                       icon: const Icon(Icons.add_circle),
-                      onPressed: () => _showAddQuoteDialog(context, bookId),
+                      onPressed: () => _showAddQuoteDialog(context, bookId), // Вызываем метод класса
                       tooltip: 'Добавить цитату',
                     ),
                   ],
@@ -197,9 +197,56 @@ class BookDetailsScreen extends StatelessWidget {
     );
   }
 
-  // Диалог для добавления цитаты
+  /// <<< МЕТОД ТЕПЕРЬ НАХОДИТСЯ ВНУТРИ КЛАССА >>>
+  /// Диалог для добавления цитаты
   void _showAddQuoteDialog(BuildContext context, String bookId) {
-    // ... (этот метод остается без изменений)
+    final bookRepository = BookRepository();
+    final textController = TextEditingController();
+    final pageController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Добавить цитату'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: textController,
+                decoration: const InputDecoration(labelText: 'Текст цитаты'),
+                autofocus: true,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: pageController,
+                decoration: const InputDecoration(labelText: 'Номер страницы (необязательно)'),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final text = textController.text.trim();
+                if (text.isNotEmpty) {
+                  final page = int.tryParse(pageController.text);
+                  bookRepository.addQuoteForBook(bookId, text, pageNumber: page);
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Добавить'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
