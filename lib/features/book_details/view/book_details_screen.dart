@@ -2,8 +2,10 @@
 
 import 'package:book_tracker_app/common_widgets/book_cover_widget.dart';
 import 'package:book_tracker_app/data/model/book.dart';
+import 'package:book_tracker_app/data/model/category.dart';
 import 'package:book_tracker_app/data/model/quote.dart';
 import 'package:book_tracker_app/data/repository/book_repository.dart';
+import 'package:book_tracker_app/data/model/category_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -65,6 +67,26 @@ class BookDetailsScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 const Divider(),
 
+                // <<< НОВАЯ СЕКЦИЯ >>>
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Категории', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {
+                        // TODO: Реализовать вызов диалога выбора категорий
+                      },
+                      tooltip: 'Изменить категории',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _BookCategories(categoryIds: book.categoryIds),
+                const SizedBox(height: 16),
+                const Divider(),
+
                 // Секция с цитатами
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -98,8 +120,8 @@ class BookDetailsScreen extends StatelessWidget {
                     }
                     final quotes = quoteSnapshot.data!;
                     return ListView.builder(
-                      shrinkWrap: true, // Важно для вложенных списков
-                      physics: const NeverScrollableScrollPhysics(), // Отключаем скролл
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: quotes.length,
                       itemBuilder: (context, index) {
                         final quote = quotes[index];
@@ -156,7 +178,7 @@ class BookDetailsScreen extends StatelessWidget {
                 controller: pageController,
                 decoration: const InputDecoration(labelText: 'Номер страницы (необязательно)'),
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Разрешаем ввод только цифр
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
             ],
           ),
@@ -177,6 +199,50 @@ class BookDetailsScreen extends StatelessWidget {
               child: const Text('Добавить'),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+// <<< НОВЫЙ ВИДЖЕТ >>>
+/// Виджет для отображения списка категорий книги.
+class _BookCategories extends StatelessWidget {
+  final List<String> categoryIds;
+  const _BookCategories({required this.categoryIds});
+
+  @override
+  Widget build(BuildContext context) {
+    if (categoryIds.isEmpty) {
+      return const Text(
+        'Категории не выбраны. Нажмите "Изменить", чтобы добавить.',
+        style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+      );
+    }
+
+    // Используем FutureBuilder, так как нам нужно один раз загрузить имена категорий по их ID.
+    return FutureBuilder<List<Category>>(
+      future: CategoryRepository().getCategoriesByIds(categoryIds),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LinearProgressIndicator();
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          // Это может произойти, если категории были удалены, а у книги остались старые ID
+          return const Text('Не удалось загрузить категории.');
+        }
+        final categories = snapshot.data!;
+
+        // Wrap автоматически переносит виджеты на новую строку, если они не помещаются
+        return Wrap(
+          spacing: 8.0, // Горизонтальный отступ между чипами
+          runSpacing: 4.0, // Вертикальный отступ между рядами чипов
+          children: categories.map((category) {
+            return Chip(
+              label: Text(category.name),
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            );
+          }).toList(),
         );
       },
     );
