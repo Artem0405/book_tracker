@@ -138,7 +138,7 @@ class BookDetailsScreen extends StatelessWidget {
                     const Text('Цитаты', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     IconButton(
                       icon: const Icon(Icons.add_circle),
-                      onPressed: () => _showAddQuoteDialog(context, bookId), // Вызываем метод класса
+                      onPressed: () => _showAddQuoteDialog(context, bookId),
                       tooltip: 'Добавить цитату',
                     ),
                   ],
@@ -149,18 +149,10 @@ class BookDetailsScreen extends StatelessWidget {
                   stream: bookRepository.getQuotesForBook(bookId),
                   builder: (context, quoteSnapshot) {
                     if (quoteSnapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(),
-                      ));
+                      return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()));
                     }
                     if (!quoteSnapshot.hasData || quoteSnapshot.data!.isEmpty) {
-                      return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24.0),
-                            child: Text('Добавьте свою первую цитату!'),
-                          )
-                      );
+                      return const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 24.0), child: Text('Добавьте свою первую цитату!')));
                     }
                     final quotes = quoteSnapshot.data!;
                     return ListView.builder(
@@ -171,17 +163,21 @@ class BookDetailsScreen extends StatelessWidget {
                         final quote = quotes[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text('"${quote.text}"', style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
-                                if (quote.pageNumber != null) ...[
-                                  const SizedBox(height: 8),
-                                  Text('— стр. ${quote.pageNumber}', textAlign: TextAlign.right, style: TextStyle(color: Colors.grey.shade600)),
-                                ]
-                              ],
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                            title: Text('"${quote.text}"', style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
+                            subtitle: quote.pageNumber != null
+                                ? Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text('— стр. ${quote.pageNumber}', style: TextStyle(color: Colors.grey.shade600)),
+                              ),
+                            )
+                                : null,
+                            trailing: IconButton(
+                              icon: const Icon(Icons.more_vert),
+                              onPressed: () => _showQuoteActions(context, bookId, quote),
                             ),
                           ),
                         );
@@ -197,18 +193,18 @@ class BookDetailsScreen extends StatelessWidget {
     );
   }
 
-  /// <<< МЕТОД ТЕПЕРЬ НАХОДИТСЯ ВНУТРИ КЛАССА >>>
-  /// Диалог для добавления цитаты
-  void _showAddQuoteDialog(BuildContext context, String bookId) {
+  /// Диалог для добавления или редактирования цитаты
+  void _showAddQuoteDialog(BuildContext context, String bookId, {Quote? quoteToEdit}) {
     final bookRepository = BookRepository();
-    final textController = TextEditingController();
-    final pageController = TextEditingController();
+    final textController = TextEditingController(text: quoteToEdit?.text);
+    final pageController = TextEditingController(text: quoteToEdit?.pageNumber?.toString() ?? '');
+    final isEditing = quoteToEdit != null;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Добавить цитату'),
+          title: Text(isEditing ? 'Редактировать цитату' : 'Добавить цитату'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -237,11 +233,71 @@ class BookDetailsScreen extends StatelessWidget {
                 final text = textController.text.trim();
                 if (text.isNotEmpty) {
                   final page = int.tryParse(pageController.text);
-                  bookRepository.addQuoteForBook(bookId, text, pageNumber: page);
+                  if (isEditing) {
+                    bookRepository.updateQuote(bookId, quoteToEdit.id, text, newPageNumber: page);
+                  } else {
+                    bookRepository.addQuoteForBook(bookId, text, pageNumber: page);
+                  }
                   Navigator.of(dialogContext).pop();
                 }
               },
-              child: const Text('Добавить'),
+              child: Text(isEditing ? 'Сохранить' : 'Добавить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Показывает меню действий для конкретной цитаты
+  void _showQuoteActions(BuildContext context, String bookId, Quote quote) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Редактировать'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _showAddQuoteDialog(context, bookId, quoteToEdit: quote);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Удалить', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _showConfirmDeleteQuoteDialog(context, bookId, quote.id);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Диалог подтверждения удаления цитаты
+  void _showConfirmDeleteQuoteDialog(BuildContext context, String bookId, String quoteId) {
+    final bookRepository = BookRepository();
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Удалить цитату?'),
+          content: const Text('Это действие нельзя будет отменить.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                bookRepository.deleteQuote(bookId, quoteId);
+              },
+              child: const Text('Удалить', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -250,7 +306,6 @@ class BookDetailsScreen extends StatelessWidget {
   }
 }
 
-// <<< НОВЫЙ ВИДЖЕТ ДЛЯ ПРОГРЕССА >>>
 class _BookProgress extends StatelessWidget {
   final Book book;
   const _BookProgress({required this.book});
@@ -263,6 +318,7 @@ class _BookProgress extends StatelessWidget {
     final progress = (currentPage / pageCount).clamp(0.0, 1.0);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Прочитано $currentPage из $pageCount страниц (${(progress * 100).toStringAsFixed(0)}%)',
@@ -275,22 +331,24 @@ class _BookProgress extends StatelessWidget {
           borderRadius: BorderRadius.circular(5),
         ),
         const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: () => _showUpdateProgressDialog(context, book),
-          child: const Text('Обновить прогресс'),
+        Center(
+          child: ElevatedButton(
+            onPressed: () => _showUpdateProgressDialog(context, book),
+            child: const Text('Обновить прогресс'),
+          ),
         ),
       ],
     );
   }
 
-  // <<< НОВЫЙ ДИАЛОГ ОБНОВЛЕНИЯ ПРОГРЕССА >>>
+  /// Диалог для обновления прогресса
   void _showUpdateProgressDialog(BuildContext context, Book book) {
     final pageController = TextEditingController(text: book.currentPage.toString());
     final bookRepository = BookRepository();
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Обновить прогресс'),
           content: TextField(
@@ -302,7 +360,7 @@ class _BookProgress extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Отмена'),
             ),
             ElevatedButton(
@@ -310,7 +368,7 @@ class _BookProgress extends StatelessWidget {
                 final newPage = int.tryParse(pageController.text);
                 if (newPage != null && newPage >= 0 && newPage <= (book.pageCount ?? 0)) {
                   bookRepository.updateBookProgress(book.id, newPage);
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
                 } else {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
@@ -327,60 +385,8 @@ class _BookProgress extends StatelessWidget {
       },
     );
   }
-  // Диалог для добавления цитаты
-  void _showAddQuoteDialog(BuildContext context, String bookId) {
-    final bookRepository = BookRepository();
-    final textController = TextEditingController();
-    final pageController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Добавить цитату'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: textController,
-                decoration: const InputDecoration(labelText: 'Текст цитаты'),
-                autofocus: true,
-                maxLines: 4,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: pageController,
-                decoration: const InputDecoration(labelText: 'Номер страницы (необязательно)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final text = textController.text.trim();
-                if (text.isNotEmpty) {
-                  final page = int.tryParse(pageController.text);
-                  bookRepository.addQuoteForBook(bookId, text, pageNumber: page);
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Добавить'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
-// <<< НОВЫЙ ВИДЖЕТ >>>
-/// Виджет для отображения списка категорий книги.
 class _BookCategories extends StatelessWidget {
   final List<String> categoryIds;
   const _BookCategories({required this.categoryIds});
@@ -401,9 +407,9 @@ class _BookCategories extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const LinearProgressIndicator();
         }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
           // Это может произойти, если категории были удалены, а у книги остались старые ID
-          return const Text('Не удалось загрузить категории.');
+          return const Text('Не удалось загрузить категории.', style: TextStyle(color: Colors.red));
         }
         final categories = snapshot.data!;
 

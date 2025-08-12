@@ -195,4 +195,27 @@ class BookRepository {
         .map((doc) => model.Book.fromFirestore(doc.data(), doc.id))
         .toList();
   }
+
+  /// <<< НОВЫЙ МЕТОД: ОБНОВЛЕНИЕ ЦИТАТЫ >>>
+  Future<void> updateQuote(String bookId, String quoteId, String newText, {int? newPageNumber}) async {
+    if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
+
+    await _firestore
+        .collection('user_books').doc(bookId)
+        .collection('quotes').doc(quoteId)
+        .update({
+      'text': newText,
+      'pageNumber': newPageNumber,
+    });
+  }
+
+  /// <<< НОВЫЙ МЕТОД: УДАЛЕНИЕ ЦИТАТЫ >>>
+  Future<void> deleteQuote(String bookId, String quoteId) async {
+    if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
+
+    await _firestore
+        .collection('user_books').doc(bookId)
+        .collection('quotes').doc(quoteId)
+        .delete();
+  }
 }
