@@ -1,8 +1,11 @@
 // lib/features/book_details/view/book_details_screen.dart
+
+import 'package:book_tracker_app/common_widgets/book_cover_widget.dart';
 import 'package:book_tracker_app/data/model/book.dart';
 import 'package:book_tracker_app/data/model/quote.dart';
 import 'package:book_tracker_app/data/repository/book_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class BookDetailsScreen extends StatelessWidget {
   final String bookId;
@@ -17,6 +20,9 @@ class BookDetailsScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return Scaffold(appBar: AppBar(), body: Center(child: Text('Ошибка: ${snapshot.error}')));
         }
         if (!snapshot.hasData || snapshot.data == null) {
           return Scaffold(appBar: AppBar(), body: const Center(child: Text('Книга не найдена.')));
@@ -35,8 +41,12 @@ class BookDetailsScreen extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (book.coverUrl != null)
-                      Image.network(book.coverUrl!, height: 150, width: 100, fit: BoxFit.cover),
+                    BookCoverWidget(
+                      coverUrl: book.coverUrl,
+                      title: book.title,
+                      height: 150,
+                      width: 100,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -63,6 +73,7 @@ class BookDetailsScreen extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.add_circle),
                       onPressed: () => _showAddQuoteDialog(context, bookId),
+                      tooltip: 'Добавить цитату',
                     ),
                   ],
                 ),
@@ -72,15 +83,23 @@ class BookDetailsScreen extends StatelessWidget {
                   stream: bookRepository.getQuotesForBook(bookId),
                   builder: (context, quoteSnapshot) {
                     if (quoteSnapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      ));
                     }
                     if (!quoteSnapshot.hasData || quoteSnapshot.data!.isEmpty) {
-                      return const Center(child: Text('Добавьте свою первую цитату!'));
+                      return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: Text('Добавьте свою первую цитату!'),
+                          )
+                      );
                     }
                     final quotes = quoteSnapshot.data!;
                     return ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true, // Важно для вложенных списков
+                      physics: const NeverScrollableScrollPhysics(), // Отключаем скролл
                       itemCount: quotes.length,
                       itemBuilder: (context, index) {
                         final quote = quotes[index];
@@ -89,7 +108,7 @@ class BookDetailsScreen extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(12.0),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text('"${quote.text}"', style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
                                 if (quote.pageNumber != null) ...[
@@ -129,12 +148,15 @@ class BookDetailsScreen extends StatelessWidget {
               TextField(
                 controller: textController,
                 decoration: const InputDecoration(labelText: 'Текст цитаты'),
+                autofocus: true,
                 maxLines: 4,
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: pageController,
                 decoration: const InputDecoration(labelText: 'Номер страницы (необязательно)'),
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // Разрешаем ввод только цифр
               ),
             ],
           ),
@@ -145,7 +167,7 @@ class BookDetailsScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                final text = textController.text;
+                final text = textController.text.trim();
                 if (text.isNotEmpty) {
                   final page = int.tryParse(pageController.text);
                   bookRepository.addQuoteForBook(bookId, text, pageNumber: page);

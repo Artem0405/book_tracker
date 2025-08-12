@@ -1,5 +1,6 @@
 // lib/features/home/view/shelves_screen.dart
 
+import 'package:book_tracker_app/common_widgets/book_cover_widget.dart';
 import 'package:book_tracker_app/data/model/book.dart';
 import 'package:book_tracker_app/data/repository/book_repository.dart';
 import 'package:book_tracker_app/features/book_details/view/book_details_screen.dart';
@@ -69,9 +70,10 @@ class _BookListView extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
               child: ListTile(
-                leading: book.coverUrl != null
-                    ? Image.network(book.coverUrl!, width: 50, fit: BoxFit.cover)
-                    : const Icon(Icons.book_online, size: 50),
+                leading: BookCoverWidget(
+                  coverUrl: book.coverUrl,
+                  title: book.title,
+                ),
                 title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(book.authors.join(', ')),
                 onTap: () {
@@ -137,9 +139,7 @@ class _BookListView extends StatelessWidget {
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Удалить книгу', style: TextStyle(color: Colors.red)),
               onTap: () {
-                // Сначала закрываем нижнее меню
                 Navigator.of(ctx).pop();
-                // Затем показываем диалог подтверждения
                 _showConfirmDeleteDialog(context, book);
               },
             ),
@@ -163,25 +163,18 @@ class _BookListView extends StatelessWidget {
             TextButton(
               child: const Text('Отмена'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Закрыть диалог
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
               child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.red)),
-              // ПРАВИЛЬНО
               onPressed: () {
-                // Сначала закрываем диалог. Пользователь сразу видит, что его действие принято.
                 Navigator.of(dialogContext).pop();
-
-                // Теперь выполняем операцию удаления.
-                // StreamBuilder в фоне спокойно перерисует список, когда данные изменятся.
                 bookRepository.deleteBook(book.id).then((_) {
-                  // Показываем подтверждение, когда все успешно завершилось
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(const SnackBar(content: Text('Книга удалена')));
                 }).catchError((error) {
-                  // Ловим возможные ошибки и показываем их
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(SnackBar(content: Text('Ошибка при удалении: $error')));
