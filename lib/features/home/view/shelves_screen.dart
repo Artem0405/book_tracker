@@ -10,14 +10,12 @@ class ShelvesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Используем TabController для управления вкладками.
-    // Оборачиваем Scaffold в DefaultTabController.
+    // Используем TabController для управления вкладками
     return DefaultTabController(
       length: 3, // У нас будет 3 полки
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Мои полки'),
-          // 'bottom' AppBar - идеальное место для TabBar.
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Хочу прочитать'),
@@ -26,8 +24,6 @@ class ShelvesScreen extends StatelessWidget {
             ],
           ),
         ),
-        // TabBarView отображает контент для каждой вкладки.
-        // Порядок дочерних элементов должен соответствовать порядку вкладок в TabBar.
         body: const TabBarView(
           children: [
             // Передаем каждой вкладке виджет с нужным типом полки
@@ -41,42 +37,30 @@ class ShelvesScreen extends StatelessWidget {
   }
 }
 
-// Переиспользуемый виджет для отображения списка книг с одной полки.
-// Мы вынесли его в отдельный виджет, чтобы не дублировать код.
+// Переиспользуемый виджет для отображения списка книг с одной полки
 class _BookListView extends StatelessWidget {
   final String shelf;
   const _BookListView({required this.shelf});
 
   @override
   Widget build(BuildContext context) {
-    // Создаем экземпляр репозитория для доступа к данным.
     final bookRepository = BookRepository();
 
     return StreamBuilder<List<Book>>(
-      // Подписываемся на поток книг с конкретной полки.
       stream: bookRepository.getBooksFromShelf(shelf),
       builder: (context, snapshot) {
-        // Пока данные загружаются, показываем индикатор.
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        // Если произошла ошибка, показываем ее.
         if (snapshot.hasError) {
           return Center(child: Text('Произошла ошибка: ${snapshot.error}'));
         }
-        // Если данных нет или список пуст, показываем заглушку.
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text(
-              'На этой полке пока нет книг.',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
+          return const Center(child: Text('На этой полке пока нет книг.'));
         }
 
         final books = snapshot.data!;
 
-        // Если данные есть, строим список.
         return ListView.builder(
           padding: const EdgeInsets.all(8.0),
           itemCount: books.length,
@@ -91,17 +75,17 @@ class _BookListView extends StatelessWidget {
                 title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(book.authors.join(', ')),
                 onTap: () {
-                  // Навигация на экран деталей книги с передачей ID книги.
+                  // Переход на экран деталей книги
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => BookDetailsScreen(bookId: book.id),
                     ),
                   );
                 },
-                // Кнопка с тремя точками для вызова меню действий.
+                // Добавляем меню для перемещения и удаления книги
                 trailing: IconButton(
                   icon: const Icon(Icons.more_vert),
-                  onPressed: () => _showMoveBookMenu(context, book),
+                  onPressed: () => _showBookActionsMenu(context, book),
                 ),
               ),
             );
@@ -111,24 +95,23 @@ class _BookListView extends StatelessWidget {
     );
   }
 
-  // Метод для показа меню действий с книгой (нижнее всплывающее окно).
-  void _showMoveBookMenu(BuildContext context, Book book) {
+  // Метод для показа меню действий с книгой
+  void _showBookActionsMenu(BuildContext context, Book book) {
     final bookRepository = BookRepository();
 
     showModalBottomSheet(
       context: context,
       builder: (ctx) {
-        // Wrap позволяет виджетам переноситься, если они не помещаются.
         return Wrap(
           children: <Widget>[
-            // Динамически показываем опции, кроме той, где книга уже находится.
+            // Не показываем кнопку для текущей полки
             if (shelf != 'reading')
               ListTile(
                 leading: const Icon(Icons.import_contacts),
                 title: const Text('Переместить в "Читаю"'),
                 onTap: () async {
                   await bookRepository.moveBookToShelf(book.id, 'reading');
-                  Navigator.of(ctx).pop(); // Закрываем bottom sheet
+                  Navigator.of(ctx).pop();
                 },
               ),
             if (shelf != 'read')
@@ -149,13 +132,62 @@ class _BookListView extends StatelessWidget {
                   Navigator.of(ctx).pop();
                 },
               ),
-            // TODO: Можно добавить опцию "Удалить книгу"
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.cancel_outlined),
-              title: const Text('Отмена'),
-              onTap: () => Navigator.of(ctx).pop(),
-            )
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Удалить книгу', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                // Сначала закрываем нижнее меню
+                Navigator.of(ctx).pop();
+                // Затем показываем диалог подтверждения
+                _showConfirmDeleteDialog(context, book);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Метод для показа диалога подтверждения удаления
+  void _showConfirmDeleteDialog(BuildContext context, Book book) {
+    final bookRepository = BookRepository();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Подтверждение'),
+          content: Text('Вы уверены, что хотите удалить книгу "${book.title}"? Это действие необратимо.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Отмена'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Закрыть диалог
+              },
+            ),
+            TextButton(
+              child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.red)),
+              // ПРАВИЛЬНО
+              onPressed: () {
+                // Сначала закрываем диалог. Пользователь сразу видит, что его действие принято.
+                Navigator.of(dialogContext).pop();
+
+                // Теперь выполняем операцию удаления.
+                // StreamBuilder в фоне спокойно перерисует список, когда данные изменятся.
+                bookRepository.deleteBook(book.id).then((_) {
+                  // Показываем подтверждение, когда все успешно завершилось
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(const SnackBar(content: Text('Книга удалена')));
+                }).catchError((error) {
+                  // Ловим возможные ошибки и показываем их
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(SnackBar(content: Text('Ошибка при удалении: $error')));
+                });
+              },
+            ),
           ],
         );
       },

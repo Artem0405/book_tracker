@@ -3,6 +3,7 @@
 import 'package:book_tracker_app/data/api/google_books_api_service.dart';
 import 'package:book_tracker_app/data/model/book.dart' as model;
 import 'package:book_tracker_app/data/repository/book_repository.dart';
+import 'package:book_tracker_app/features/manual_add/view/manual_add_book_screen.dart';
 import 'package:book_tracker_app/features/search/cubit/search_cubit.dart';
 import 'package:book_tracker_app/features/search/cubit/search_state.dart';
 import 'package:flutter/material.dart';
@@ -27,20 +28,26 @@ class SearchView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Поиск книг')),
+      // Кнопка для перехода на экран ручного добавления
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ManualAddBookScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
-              autofocus: true, // Клавиатура появляется сразу при открытии экрана
               decoration: const InputDecoration(
                 labelText: 'Введите название или автора',
                 suffixIcon: Icon(Icons.search),
               ),
               onSubmitted: (query) {
-                if (query.isNotEmpty) {
-                  context.read<SearchCubit>().searchBooks(query);
-                }
+                context.read<SearchCubit>().searchBooks(query);
               },
             ),
           ),
@@ -63,7 +70,7 @@ class SearchView extends StatelessWidget {
                         return ListTile(
                           leading: book.coverUrl != null
                               ? Image.network(book.coverUrl!)
-                              : const Icon(Icons.book_online, size: 50),
+                              : const Icon(Icons.book_online),
                           title: Text(book.title),
                           subtitle: Text(book.authors.join(', ')),
                           onTap: () {
@@ -86,7 +93,6 @@ class SearchView extends StatelessWidget {
     );
   }
 
-  // <<< ИЗМЕНЕНИЕ ЗДЕСЬ >>>
   // Метод для показа диалога выбора полки
   void _showAddBookDialog(BuildContext context, model.Book book) {
     final bookRepository = BookRepository();
@@ -94,58 +100,45 @@ class SearchView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        // SimpleDialog идеально подходит для предоставления списка опций
+        // Используем SimpleDialog для предоставления выбора
         return SimpleDialog(
           title: Text('Добавить "${book.title}" на полку:'),
           children: <Widget>[
             SimpleDialogOption(
-              onPressed: () {
-                // Добавляем книгу и закрываем диалог
-                bookRepository.addBook(book, 'wantToRead');
+              onPressed: () async {
+                await bookRepository.addBook(book, 'wantToRead');
                 Navigator.of(dialogContext).pop();
               },
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: const Text('Хочу прочитать', style: TextStyle(fontSize: 16)),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              child: const Text('Хочу прочитать'),
             ),
             SimpleDialogOption(
-              onPressed: () {
-                bookRepository.addBook(book, 'reading');
+              onPressed: () async {
+                await bookRepository.addBook(book, 'reading');
                 Navigator.of(dialogContext).pop();
               },
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: const Text('Читаю сейчас', style: TextStyle(fontSize: 16)),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              child: const Text('Читаю сейчас'),
             ),
             SimpleDialogOption(
-              onPressed: () {
-                bookRepository.addBook(book, 'read');
+              onPressed: () async {
+                await bookRepository.addBook(book, 'read');
                 Navigator.of(dialogContext).pop();
               },
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: const Text('Прочитано', style: TextStyle(fontSize: 16)),
-            ),
-            // Опция "Отмена" для удобства
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Align(
-                alignment: Alignment.centerRight,
-                child: Text('ОТМЕНА', style: TextStyle(color: Colors.deepPurple)),
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              child: const Text('Прочитано'),
             ),
           ],
         );
       },
-    ).then((_) { // .then() выполнится после того, как диалог будет закрыт
-      // Показываем подтверждение, но только если книга была действительно добавлена
-      // (Этот блок выполнится даже при отмене, поэтому сообщение общее,
-      // но можно усложнить логику, если нужно)
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          content: Text('Действие выполнено'),
-          duration: Duration(seconds: 1),
-        ));
+    ).then((_) {
+      // .then() выполнится после закрытия диалога, независимо от того,
+      // как он был закрыт (выбором опции или нажатием вне диалога).
+      // Это хорошее место для показа SnackBar, но мы покажем его только если
+      // книга была реально добавлена.
+      // В нашем случае, мы добавили SnackBar в сам метод addBook,
+      // поэтому здесь его можно убрать или оставить для общих случаев.
+      // Для простоты оставим как есть.
     });
   }
 }

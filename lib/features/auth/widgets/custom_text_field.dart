@@ -6,6 +6,7 @@ class CustomTextField extends StatefulWidget {
   final String labelText;
   final bool isPassword;
   final IconData? icon;
+  final TextInputType? keyboardType; // Параметр для типа клавиатуры
 
   const CustomTextField({
     super.key,
@@ -13,6 +14,7 @@ class CustomTextField extends StatefulWidget {
     required this.labelText,
     this.isPassword = false,
     this.icon,
+    this.keyboardType, // Добавлен в конструктор
   });
 
   @override
@@ -37,10 +39,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
       child: TextField(
         controller: widget.controller,
         obscureText: _obscureText, // Используем локальное состояние
+        keyboardType: widget.keyboardType, // Используем переданный тип клавиатуры
         decoration: InputDecoration(
           labelText: widget.labelText,
           prefixIcon: widget.icon != null ? Icon(widget.icon) : null,
-          // >>> ВОТ ИЗМЕНЕНИЕ <<<
           // Добавляем иконку-переключатель только если это поле для пароля
           suffixIcon: widget.isPassword
               ? IconButton(

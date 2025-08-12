@@ -48,6 +48,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   formz: ^0.8.0
   dio: ^5.9.0
+  firebase_storage: ^11.7.7
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
