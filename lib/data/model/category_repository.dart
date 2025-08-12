@@ -12,17 +12,21 @@ class CategoryRepository {
   /// Получает все стандартные категории и категории текущего пользователя.
   Stream<List<Category>> getCategories() {
     if (_userId == null) return Stream.value([]);
-    // Запрос для получения категорий, где userId либо null (общие), либо равен ID текущего юзера
+    // <<< ИЗМЕНЕНИЕ ЗДЕСЬ >>>
+    // Теперь мы ищем документы, где userId либо 'default', либо ID текущего пользователя.
+    // Это Firestore умеет делать без проблем!
     return _firestore.collection('categories')
-        .where('userId', whereIn: [null, _userId])
+        .where('userId', whereIn: ['default', _userId])
         .snapshots()
-        .map((snapshot) => snapshot.docs
+        .map((snapshot) =>
+    snapshot.docs
         .map((doc) => Category.fromFirestore(doc.data(), doc.id))
-        .toList()..sort((a, b) => a.name.compareTo(b.name)) // Сортируем по алфавиту
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name))
     );
   }
 
-  /// Получает список категорий по их ID.
+    /// Получает список категорий по их ID.
   /// Это нужно, чтобы отобразить имена категорий на экране деталей книги.
   Future<List<Category>> getCategoriesByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
@@ -36,21 +40,22 @@ class CategoryRepository {
   Future<void> createCategory(String name) async {
     if (_userId == null) throw Exception('Пользователь не аутентифицирован');
 
-    // Проверка, не существует ли уже такая категория у пользователя
-    final existing = await _firestore.collection('categories')
-        .where('userId', isEqualTo: _userId)
-        .where('name', isEqualTo: name)
-        .limit(1)
+    // Проверяем все доступные категории
+    final allCategoriesSnapshot = await _firestore.collection('categories')
+        .where('userId', whereIn: ['default', _userId])
         .get();
 
-    if (existing.docs.isNotEmpty) {
+    final doesExist = allCategoriesSnapshot.docs
+        .any((doc) => doc.data()['name'].toString().toLowerCase() == name.toLowerCase());
+
+    if (doesExist) {
       throw Exception('Категория с таким именем уже существует');
     }
 
     await _firestore.collection('categories').add({
       'name': name,
       'userId': _userId,
-      'isDefault': false,
+      'isDefault': false, // Оставляем для ясности
     });
   }
 }

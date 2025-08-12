@@ -8,6 +8,7 @@ import 'package:book_tracker_app/data/repository/book_repository.dart';
 import 'package:book_tracker_app/data/model/category_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:book_tracker_app/features/book_details/widgets/category_selection_dialog.dart';
 
 class BookDetailsScreen extends StatelessWidget {
   final String bookId;
@@ -75,8 +76,20 @@ class BookDetailsScreen extends StatelessWidget {
                     const Text('Категории', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      onPressed: () {
-                        // TODO: Реализовать вызов диалога выбора категорий
+                      onPressed: () async {
+                        // Вызываем наш новый диалог и ждем результат
+                        final List<String>? selectedIds = await showDialog<List<String>>(
+                          context: context,
+                          builder: (_) => CategorySelectionDialog(
+                            initialSelectedIds: book.categoryIds,
+                          ),
+                        );
+
+                        // Если пользователь нажал "Сохранить", а не "Отмена"
+                        if (selectedIds != null) {
+                          // Вызываем метод репозитория для сохранения изменений в Firestore
+                          await BookRepository().updateBookCategories(book.id, selectedIds);
+                        }
                       },
                       tooltip: 'Изменить категории',
                     ),
