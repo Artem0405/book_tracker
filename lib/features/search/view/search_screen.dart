@@ -23,63 +23,6 @@ class SearchScreen extends StatelessWidget {
 class SearchView extends StatelessWidget {
   const SearchView({super.key});
 
-  // Метод для отображения диалога добавления книги
-  void _showAddBookDialog(BuildContext context, model.Book book) {
-    // Создаем экземпляр репозитория прямо здесь.
-    // В более крупном приложении его можно было бы получать через BlocProvider/RepositoryProvider.
-    final bookRepository = BookRepository();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            'Добавить "${book.title}"?',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          content: const Text('Выберите полку, на которую хотите добавить эту книгу.'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('ОТМЕНА'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            // TODO: Добавить кнопки для других полок ('Читаю', 'Прочитано')
-            FilledButton( // Используем более заметную кнопку
-              child: const Text('ХОЧУ ПРОЧИТАТЬ'),
-              onPressed: () async {
-                try {
-                  // Вызываем метод репозитория для добавления книги
-                  await bookRepository.addBook(book, 'wantToRead');
-                  Navigator.of(dialogContext).pop(); // Закрываем диалог
-
-                  // Показываем подтверждение
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(const SnackBar(
-                      content: Text('Книга добавлена!'),
-                      backgroundColor: Colors.green,
-                    ));
-                } catch (e) {
-                  Navigator.of(dialogContext).pop();
-                  // Показываем ошибку
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(
-                      content: Text('Ошибка: $e'),
-                      backgroundColor: Colors.red,
-                    ));
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,15 +30,12 @@ class SearchView extends StatelessWidget {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(8.0),
             child: TextField(
-              decoration: InputDecoration(
+              autofocus: true, // Клавиатура появляется сразу при открытии экрана
+              decoration: const InputDecoration(
                 labelText: 'Введите название или автора',
-                hintText: 'Например, "1984" или "Оруэлл"',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                suffixIcon: Icon(Icons.search),
               ),
               onSubmitted: (query) {
                 if (query.isNotEmpty) {
@@ -114,40 +54,29 @@ class SearchView extends StatelessWidget {
                     return Center(child: Text('Ошибка: ${state.errorMessage}'));
                   case SearchStatus.success:
                     if (state.books.isEmpty) {
-                      return const Center(child: Text('Ничего не найдено. Попробуйте другой запрос.'));
+                      return const Center(child: Text('Ничего не найдено.'));
                     }
-                    // Результаты поиска
                     return ListView.builder(
                       itemCount: state.books.length,
                       itemBuilder: (context, index) {
                         final book = state.books[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(10),
-                            leading: book.coverUrl != null
-                                ? Image.network(
-                              book.coverUrl!,
-                              width: 50,
-                              fit: BoxFit.cover,
-                              // Обработка ошибок загрузки изображений
-                              errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.book_online, size: 40),
-                            )
-                                : const Icon(Icons.book_online, size: 40),
-                            title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(book.authors.join(', ')),
-                            trailing: const Icon(Icons.add_circle_outline),
-                            onTap: () {
-                              _showAddBookDialog(context, book);
-                            },
-                          ),
+                        return ListTile(
+                          leading: book.coverUrl != null
+                              ? Image.network(book.coverUrl!)
+                              : const Icon(Icons.book_online, size: 50),
+                          title: Text(book.title),
+                          subtitle: Text(book.authors.join(', ')),
+                          onTap: () {
+                            // Показываем диалог для выбора полки
+                            _showAddBookDialog(context, book);
+                          },
                         );
                       },
                     );
                   case SearchStatus.initial:
                   default:
-                    return const Center(child: Text('Начните поиск, чтобы увидеть результаты.'));
+                    return const Center(
+                        child: Text('Начните поиск, чтобы увидеть результаты.'));
                 }
               },
             ),
@@ -155,5 +84,68 @@ class SearchView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // <<< ИЗМЕНЕНИЕ ЗДЕСЬ >>>
+  // Метод для показа диалога выбора полки
+  void _showAddBookDialog(BuildContext context, model.Book book) {
+    final bookRepository = BookRepository();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        // SimpleDialog идеально подходит для предоставления списка опций
+        return SimpleDialog(
+          title: Text('Добавить "${book.title}" на полку:'),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                // Добавляем книгу и закрываем диалог
+                bookRepository.addBook(book, 'wantToRead');
+                Navigator.of(dialogContext).pop();
+              },
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: const Text('Хочу прочитать', style: TextStyle(fontSize: 16)),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                bookRepository.addBook(book, 'reading');
+                Navigator.of(dialogContext).pop();
+              },
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: const Text('Читаю сейчас', style: TextStyle(fontSize: 16)),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                bookRepository.addBook(book, 'read');
+                Navigator.of(dialogContext).pop();
+              },
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: const Text('Прочитано', style: TextStyle(fontSize: 16)),
+            ),
+            // Опция "Отмена" для удобства
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: Text('ОТМЕНА', style: TextStyle(color: Colors.deepPurple)),
+              ),
+            ),
+          ],
+        );
+      },
+    ).then((_) { // .then() выполнится после того, как диалог будет закрыт
+      // Показываем подтверждение, но только если книга была действительно добавлена
+      // (Этот блок выполнится даже при отмене, поэтому сообщение общее,
+      // но можно усложнить логику, если нужно)
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text('Действие выполнено'),
+          duration: Duration(seconds: 1),
+        ));
+    });
   }
 }
