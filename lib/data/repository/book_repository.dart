@@ -1,6 +1,4 @@
 // lib/data/repository/book_repository.dart
-
-import 'dart:io';
 import 'package:book_tracker_app/data/model/book.dart' as model;
 import 'package:book_tracker_app/data/model/quote.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,6 +15,7 @@ class BookRepository {
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   String? get _userId => _firebaseAuth.currentUser?.uid;
+  String? get getUserId => _userId;
 
   /// Добавляет книгу из Google Books API в коллекцию пользователя.
   Future<void> addBook(model.Book book, String shelf) async {
@@ -33,7 +32,7 @@ class BookRepository {
       'addedAt': FieldValue.serverTimestamp(),
       'currentPage': 0,
       'rating': 0.0,
-      'categoryIds': [], // Добавляем пустое поле для категорий
+      'categoryIds': [],
     };
 
     await _firestore.collection('user_books').add(bookData);
@@ -45,7 +44,6 @@ class BookRepository {
     required String author,
     required String shelf,
     int? pageCount,
-    File? imageFile,
   }) async {
     if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
 
@@ -62,7 +60,7 @@ class BookRepository {
       'addedAt': FieldValue.serverTimestamp(),
       'currentPage': 0,
       'rating': 0.0,
-      'categoryIds': [], // Добавляем пустое поле для категорий
+      'categoryIds': [],
     };
 
     await _firestore.collection('user_books').add(bookData);
@@ -99,12 +97,42 @@ class BookRepository {
     await _firestore.collection('user_books').doc(bookId).delete();
   }
 
-  /// <<< НОВЫЙ МЕТОД >>>
   /// Обновляет список категорий для конкретной книги.
   Future<void> updateBookCategories(String bookId, List<String> categoryIds) async {
     if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
     await _firestore.collection('user_books').doc(bookId).update({
       'categoryIds': categoryIds,
+    });
+  }
+
+  /// Обновляет прогресс чтения книги.
+  Future<void> updateBookProgress(String bookId, int newPage) async {
+    if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
+
+    final bookDocRef = _firestore.collection('user_books').doc(bookId);
+
+    final bookSnapshot = await bookDocRef.get();
+    if (!bookSnapshot.exists) throw Exception('Книга не найдена');
+
+    final pageCount = bookSnapshot.data()?['pageCount'] as int?;
+
+    final Map<String, dynamic> updateData = {'currentPage': newPage};
+
+    if (pageCount != null && newPage >= pageCount) {
+      updateData['shelf'] = 'read';
+      updateData['finishedAt'] = FieldValue.serverTimestamp();
+    }
+
+    await bookDocRef.update(updateData);
+  }
+
+  /// <<< МЕТОД ДЛЯ ОБНОВЛЕНИЯ РЕЙТИНГА >>>
+  /// Обновляет рейтинг книги.
+  Future<void> updateBookRating(String bookId, double rating) async {
+    if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
+
+    await _firestore.collection('user_books').doc(bookId).update({
+      'rating': rating,
     });
   }
 
@@ -118,7 +146,6 @@ class BookRepository {
         .snapshots()
         .map((snapshot) {
       if (!snapshot.exists) return null;
-      // Используем новый конструктор fromFirestore
       return model.Book.fromFirestore(snapshot.data()!, snapshot.id);
     });
   }
@@ -152,5 +179,20 @@ class BookRepository {
         .doc(bookId)
         .collection('quotes')
         .add(quoteData);
+  }
+
+  /// Получает список всех прочитанных книг. Возвращает Future.
+  Future<List<model.Book>> getFinishedBooks() async {
+    if (_userId == null) return [];
+
+    final snapshot = await _firestore
+        .collection('user_books')
+        .where('userId', isEqualTo: _userId)
+        .where('shelf', isEqualTo: 'read')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => model.Book.fromFirestore(doc.data(), doc.id))
+        .toList();
   }
 }

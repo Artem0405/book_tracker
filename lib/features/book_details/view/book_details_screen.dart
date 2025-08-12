@@ -6,9 +6,10 @@ import 'package:book_tracker_app/data/model/category.dart';
 import 'package:book_tracker_app/data/model/quote.dart';
 import 'package:book_tracker_app/data/repository/book_repository.dart';
 import 'package:book_tracker_app/data/model/category_repository.dart';
+import 'package:book_tracker_app/features/book_details/widgets/category_selection_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:book_tracker_app/features/book_details/widgets/category_selection_dialog.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class BookDetailsScreen extends StatelessWidget {
   final String bookId;
@@ -44,11 +45,14 @@ class BookDetailsScreen extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    BookCoverWidget(
-                      coverUrl: book.coverUrl,
-                      title: book.title,
-                      height: 150,
-                      width: 100,
+                    Hero(
+                      tag: 'book_cover_${book.id}',
+                      child: BookCoverWidget(
+                        coverUrl: book.coverUrl,
+                        title: book.title,
+                        height: 150,
+                        width: 100,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -66,9 +70,42 @@ class BookDetailsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Divider(),
 
-                // <<< НОВАЯ СЕКЦИЯ >>>
+                // <<< СЕКЦИЯ ОЦЕНКИ >>>
+                if (book.shelf == 'read') ...[
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text('Ваша оценка', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: RatingBar.builder(
+                      initialRating: book.rating,
+                      minRating: 0.5,
+                      direction: Axis.horizontal,
+                      allowHalfRating: true,
+                      itemCount: 5,
+                      itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.amber),
+                      onRatingUpdate: (rating) {
+                        bookRepository.updateBookRating(book.id, rating);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Секция прогресса чтения
+                if (book.pageCount != null && book.pageCount! > 0) ...[
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text('Прогресс чтения', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _BookProgress(book: book),
+                  const SizedBox(height: 16),
+                ],
+
+                // Секция с категориями
+                const Divider(),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -77,18 +114,12 @@ class BookDetailsScreen extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.edit),
                       onPressed: () async {
-                        // Вызываем наш новый диалог и ждем результат
                         final List<String>? selectedIds = await showDialog<List<String>>(
                           context: context,
-                          builder: (_) => CategorySelectionDialog(
-                            initialSelectedIds: book.categoryIds,
-                          ),
+                          builder: (_) => CategorySelectionDialog(initialSelectedIds: book.categoryIds),
                         );
-
-                        // Если пользователь нажал "Сохранить", а не "Отмена"
                         if (selectedIds != null) {
-                          // Вызываем метод репозитория для сохранения изменений в Firestore
-                          await BookRepository().updateBookCategories(book.id, selectedIds);
+                          await bookRepository.updateBookCategories(book.id, selectedIds);
                         }
                       },
                       tooltip: 'Изменить категории',
@@ -166,6 +197,89 @@ class BookDetailsScreen extends StatelessWidget {
     );
   }
 
+  // Диалог для добавления цитаты
+  void _showAddQuoteDialog(BuildContext context, String bookId) {
+    // ... (этот метод остается без изменений)
+  }
+}
+
+// <<< НОВЫЙ ВИДЖЕТ ДЛЯ ПРОГРЕССА >>>
+class _BookProgress extends StatelessWidget {
+  final Book book;
+  const _BookProgress({required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    // Убеждаемся, что pageCount не null и не 0, чтобы избежать деления на ноль
+    final pageCount = book.pageCount ?? 1;
+    final currentPage = book.currentPage;
+    final progress = (currentPage / pageCount).clamp(0.0, 1.0);
+
+    return Column(
+      children: [
+        Text(
+          'Прочитано $currentPage из $pageCount страниц (${(progress * 100).toStringAsFixed(0)}%)',
+          style: const TextStyle(fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(
+          value: progress,
+          minHeight: 10,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: () => _showUpdateProgressDialog(context, book),
+          child: const Text('Обновить прогресс'),
+        ),
+      ],
+    );
+  }
+
+  // <<< НОВЫЙ ДИАЛОГ ОБНОВЛЕНИЯ ПРОГРЕССА >>>
+  void _showUpdateProgressDialog(BuildContext context, Book book) {
+    final pageController = TextEditingController(text: book.currentPage.toString());
+    final bookRepository = BookRepository();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Обновить прогресс'),
+          content: TextField(
+            controller: pageController,
+            decoration: InputDecoration(labelText: 'Прочитано страниц (из ${book.pageCount})'),
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newPage = int.tryParse(pageController.text);
+                if (newPage != null && newPage >= 0 && newPage <= (book.pageCount ?? 0)) {
+                  bookRepository.updateBookProgress(book.id, newPage);
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(SnackBar(
+                      content: Text('Введите число от 0 до ${book.pageCount}!'),
+                      backgroundColor: Colors.red,
+                    ));
+                }
+              },
+              child: const Text('Сохранить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   // Диалог для добавления цитаты
   void _showAddQuoteDialog(BuildContext context, String bookId) {
     final bookRepository = BookRepository();

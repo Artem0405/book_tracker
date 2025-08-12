@@ -70,9 +70,14 @@ class _BookListView extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
               child: ListTile(
-                leading: BookCoverWidget(
-                  coverUrl: book.coverUrl,
-                  title: book.title,
+                leading: Hero(
+                  // Тег должен быть уникальным для каждой книги, но одинаковым на обоих экранах.
+                  // ID книги идеально подходит для этой роли.
+                  tag: 'book_cover_${book.id}',
+                  child: BookCoverWidget(
+                    coverUrl: book.coverUrl,
+                    title: book.title,
+                  ),
                 ),
                 title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(book.authors.join(', ')),
