@@ -1,5 +1,6 @@
 // lib/features/home/view/shelves_screen.dart
-
+import 'package:book_tracker_app/data/model/book.dart';
+import 'package:book_tracker_app/data/repository/book_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,67 +10,72 @@ class ShelvesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Получаем текущего пользователя из FirebaseAuth, используя RepositoryProvider,
-    // который мы настроили в main.dart
+    // Мы могли бы создать Cubit, но для простой демонстрации
+    // можно использовать репозиторий напрямую.
+    final bookRepository = BookRepository();
     final user = context.read<FirebaseAuth>().currentUser;
-
-    // Формируем приветственное имя. Используем displayName, если оно есть,
-    // иначе - часть email до символа @.
-    final String welcomeName = user?.displayName ??
-        (user?.email?.split('@').first ?? 'Пользователь');
+    final String welcomeName = user?.displayName ?? (user?.email?.split('@').first ?? 'Пользователь');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Мои полки'),
-        // Можно добавить какие-то действия, например, кнопку для смены вида (список/сетка)
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.view_list),
-            onPressed: () {
-              // TODO: Реализовать смену вида
-            },
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Приветственный заголовок
             Text(
               'Привет, $welcomeName!',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
 
-            // Здесь будет логика отображения полок и книг
-            // Пока что поставим заглушку
+            // TODO: Добавить переключатель полок (Tabs: Хочу прочитать, Читаю, Прочитано)
+            const Text(
+              'Хочу прочитать', // Пока заголовок одной полки
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+
+            // Используем StreamBuilder для отображения книг в реальном времени
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shelves,
-                      size: 80,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Ваши книжные полки пока пусты.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Найдите и добавьте свою первую книгу!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
+              child: StreamBuilder<List<Book>>(
+                stream: bookRepository.getBooksFromShelf('wantToRead'),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Произошла ошибка: ${snapshot.error}'));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('На этой полке пока нет книг.'));
+                  }
+
+                  final books = snapshot.data!;
+
+                  // Отображаем книги в виде списка
+                  return ListView.builder(
+                    itemCount: books.length,
+                    itemBuilder: (context, index) {
+                      final book = books[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: ListTile(
+                          leading: book.coverUrl != null
+                              ? Image.network(book.coverUrl!, width: 50, fit: BoxFit.cover)
+                              : const Icon(Icons.book_online, size: 50),
+                          title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(book.authors.join(', ')),
+                          onTap: () {
+                            // TODO: Переход на экран деталей книги
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],

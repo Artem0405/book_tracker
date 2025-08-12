@@ -47,7 +47,8 @@ class _RegisterViewState extends State<RegisterView> {
     if (context.read<RegisterCubit>().state.status.isInProgress) return;
 
     // Простая проверка на совпадение паролей
-    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -80,8 +81,14 @@ class _RegisterViewState extends State<RegisterView> {
               ),
             );
         }
-        // Если регистрация прошла успешно, AuthBloc автоматически перенаправит
-        // на главный экран, поэтому здесь нам не нужно делать навигацию вручную.
+        // <<< ИЗМЕНЕНИЕ ЗДЕСЬ >>>
+        // Если регистрация прошла успешно...
+        if (state.status.isSuccess) {
+          // ...закрываем экран регистрации.
+          // Пользователь увидит HomeScreen, который уже был загружен "под ним"
+          // благодаря нашему главному AuthBloc.
+          Navigator.of(context).pop();
+        }
       },
       child: Scaffold(
         appBar: AppBar(
