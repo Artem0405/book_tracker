@@ -1,3 +1,7 @@
+// <<< УБЕДИТЕСЬ, ЧТО ЭТИ ДВЕ СТРОКИ IMPORT НАХОДЯТСЯ В САМОМ НАЧАЛЕ ФАЙЛА >>>
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -8,27 +12,21 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
+fun localProperties(): Properties {
+    val properties = Properties()
+    val localPropertiesFile = project.rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        properties.load(FileInputStream(localPropertiesFile))
     }
+    return properties
 }
 
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
-}
+val flutterVersionCode: String = localProperties().getProperty("flutter.versionCode") ?: "1"
+val flutterVersionName: String = localProperties().getProperty("flutter.versionName") ?: "1.0"
 
 android {
     namespace = "com.arttech.booktrackerapp"
-    compileSdk = 34 // Рекомендуется указать конкретную версию, а не flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -37,14 +35,14 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = "1.8"
     }
 
     defaultConfig {
         applicationId = "com.arttech.booktrackerapp"
-        minSdk = 21 // Рекомендуется указать конкретную версию
-        targetSdk = 34 // Рекомендуется указать конкретную версию
-        versionCode = flutterVersionCode.toInteger()
+        minSdk = 21
+        targetSdk = 34
+        versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
     }
 
@@ -54,12 +52,14 @@ android {
         }
     }
 
-    // <<< ДОБАВЬТЕ ЭТОТ БЛОК >>>
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            // Формируем новое имя файла. v${defaultConfig.versionName} возьмет версию из defaultConfig
-            def newName = "BookTracker-v${defaultConfig.versionName}-${variant.buildType.name}.apk"
-            outputFileName = newName
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this
+            if (output is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
+                val newName = "BookTracker-v${defaultConfig.versionName}-${variant.buildType.name}.apk"
+                output.outputFileName = newName
+            }
         }
     }
 }
