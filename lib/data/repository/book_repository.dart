@@ -1,39 +1,32 @@
 // lib/data/repository/book_repository.dart
 
 import 'package:book_tracker_app/data/model/book.dart' as model;
+import 'package:book_tracker_app/data/model/quote.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Репозиторий для управления книгами пользователя в Firestore.
-///
-/// Предоставляет методы для добавления, получения и обновления
-/// информации о книгах.
 class BookRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
 
-  /// Конструктор позволяет передавать экземпляры Firebase для тестирования.
-  /// Если они не переданы, используются глобальные экземпляры.
+  // Конструктор позволяет передавать моки для тестирования,
+  // но по умолчанию использует реальные экземпляры Firebase.
   BookRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? firebaseAuth,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
-  /// Приватный геттер для удобного доступа к UID текущего пользователя.
+  // Приватный геттер для удобного доступа к ID текущего пользователя.
   String? get _userId => _firebaseAuth.currentUser?.uid;
 
   /// Добавляет книгу в коллекцию пользователя в Firestore.
-  ///
-  /// [book] - объект книги, полученный из Google Books API.
-  /// [shelf] - строка, идентифицирующая полку ('wantToRead', 'reading', 'read').
   Future<void> addBook(model.Book book, String shelf) async {
-    // Проверка аутентификации пользователя перед выполнением операции.
     if (_userId == null) {
-      throw Exception('Пользователь не аутентифицирован. Невозможно добавить книгу.');
+      throw Exception('Пользователь не аутентифицирован.');
     }
 
-    // Формируем документ для сохранения в Firestore.
+    // Готовим данные для сохранения в Firestore.
     final bookData = {
       'googleBookId': book.id,
       'title': book.title,
@@ -41,41 +34,32 @@ class BookRepository {
       'coverUrl': book.coverUrl,
       'pageCount': book.pageCount,
       'userId': _userId,
-      'shelf': shelf,
+      'shelf': shelf, // 'wantToRead', 'reading', 'read'
       'addedAt': FieldValue.serverTimestamp(), // Используем серверное время для консистентности.
-      // Можно добавить и другие поля по умолчанию, например:
-      'currentPage': 0,
-      'rating': 0,
     };
 
-    // Добавляем новый документ в коллекцию 'user_books'.
+    // Добавляем документ в коллекцию 'user_books'. Firestore автоматически сгенерирует ID.
     await _firestore.collection('user_books').add(bookData);
   }
 
   /// Получает поток (stream) книг с определенной полки для текущего пользователя.
-  ///
-  /// Использование Stream позволяет UI обновляться в реальном времени при
-  /// любых изменениях в базе данных.
   Stream<List<model.Book>> getBooksFromShelf(String shelf) {
     if (_userId == null) {
-      // Если пользователь не вошел, возвращаем пустой поток.
-      return Stream.value([]);
+      return Stream.value([]); // Возвращаем пустой поток, если пользователя нет.
     }
 
     return _firestore
         .collection('user_books')
-        .where('userId', isEqualTo: _userId) // Фильтруем по ID пользователя.
-        .where('shelf', isEqualTo: shelf)     // Фильтруем по названию полки.
-        .orderBy('addedAt', descending: true) // Сортируем, чтобы новые книги были сверху.
+        .where('userId', isEqualTo: _userId) // Только книги этого пользователя.
+        .where('shelf', isEqualTo: shelf)     // Только с нужной полки.
+        .orderBy('addedAt', descending: true) // Сортируем по дате добавления.
         .snapshots() // snapshots() возвращает Stream<QuerySnapshot>.
         .map((snapshot) {
       // Преобразуем QuerySnapshot в список наших объектов Book.
       return snapshot.docs.map((doc) {
         final data = doc.data();
-
-        // Преобразуем данные из Firestore в нашу локальную модель Book.
         return model.Book(
-          id: doc.id, // ВАЖНО: id нашей модели - это ID документа в Firestore!
+          id: doc.id, // ID документа в Firestore, а не googleBookId.
           title: data['title'] ?? 'Без названия',
           authors: List<String>.from(data['authors'] ?? []),
           coverUrl: data['coverUrl'],
@@ -86,28 +70,65 @@ class BookRepository {
   }
 
   /// Перемещает книгу на другую полку, обновляя поле 'shelf'.
-  ///
-  /// [bookId] - это ID документа в коллекции 'user_books'.
-  /// [newShelf] - название новой полки.
   Future<void> moveBookToShelf(String bookId, String newShelf) async {
     if (_userId == null) {
       throw Exception('Пользователь не аутентифицирован.');
     }
-
-    // Обновляем только одно поле 'shelf' в существующем документе.
+    // bookId - это ID документа в нашей коллекции user_books.
     await _firestore.collection('user_books').doc(bookId).update({
       'shelf': newShelf,
     });
   }
 
-  /// Удаляет книгу из коллекции пользователя.
-  ///
-  /// [bookId] - это ID документа в коллекции 'user_books'.
-  Future<void> deleteBook(String bookId) async {
-    if (_userId == null) {
-      throw Exception('Пользователь не аутентифицирован.');
-    }
+  /// Получает поток данных одной книги по ее ID документа в Firestore.
+  Stream<model.Book?> getBookDetails(String bookId) {
+    if (_userId == null) return Stream.value(null);
 
-    await _firestore.collection('user_books').doc(bookId).delete();
+    return _firestore
+        .collection('user_books')
+        .doc(bookId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) return null; // Если документа нет, возвращаем null.
+      final data = snapshot.data()!;
+      return model.Book(
+        id: snapshot.id,
+        title: data['title'],
+        authors: List<String>.from(data['authors']),
+        coverUrl: data['coverUrl'],
+        pageCount: data['pageCount'],
+      );
+    });
+  }
+
+  /// Получает поток цитат для конкретной книги из вложенной коллекции.
+  Stream<List<Quote>> getQuotesForBook(String bookId) {
+    if (_userId == null) return Stream.value([]);
+
+    return _firestore
+        .collection('user_books')
+        .doc(bookId)
+        .collection('quotes') // Обращаемся к вложенной коллекции 'quotes'.
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+        snapshot.docs.map((doc) => Quote.fromFirestore(doc)).toList());
+  }
+
+  /// Добавляет новую цитату для книги во вложенную коллекцию.
+  Future<void> addQuoteForBook(String bookId, String text, {int? pageNumber}) async {
+    if (_userId == null) throw Exception('Пользователь не аутентифицирован.');
+
+    final quoteData = {
+      'text': text,
+      'pageNumber': pageNumber,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await _firestore
+        .collection('user_books')
+        .doc(bookId)
+        .collection('quotes')
+        .add(quoteData);
   }
 }
